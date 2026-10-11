@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
-
+from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from fastapi import (Depends, FastAPI, File, Header, HTTPException, Query,
                      UploadFile)
@@ -36,7 +36,18 @@ def require_key(x_api_key: Optional[str] = Header(default=None)):
 
 
 app = FastAPI(title="Professor Mailer", lifespan=lifespan, dependencies=[Depends(require_key)])
+app = FastAPI(title="Professor Mailer", lifespan=lifespan, dependencies=[Depends(require_key)])
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://YOUR-APP.vercel.app",   # exact Vercel URL, no trailing slash
+        "http://localhost:5173",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # optional: Vercel preview deployments
+    allow_methods=["*"],
+    allow_headers=["*"],   # lets X-API-Key through
+)
 
 def get_db():
     with SessionLocal() as db:
