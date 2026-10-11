@@ -36,12 +36,12 @@ def require_key(x_api_key: Optional[str] = Header(default=None)):
 
 
 app = FastAPI(title="Professor Mailer", lifespan=lifespan, dependencies=[Depends(require_key)])
-app = FastAPI(title="Professor Mailer", lifespan=lifespan, dependencies=[Depends(require_key)])
+
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://YOUR-APP.vercel.app",   # exact Vercel URL, no trailing slash
+        "prof-mailer-ui-ad2f.vercel.app",   # exact Vercel URL, no trailing slash
         "http://localhost:5173",
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",  # optional: Vercel preview deployments
