@@ -22,7 +22,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_NAME = os.getenv("FROM_NAME", "")
 
 DRY_RUN = _bool("DRY_RUN", False)  # safe by default
-DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", "30"))
+DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", "150"))
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Karachi")
 CHECK_INTERVAL_SECONDS = int(os.getenv("CHECK_INTERVAL_SECONDS", "30"))
 API_KEY = os.getenv("API_KEY", "")
