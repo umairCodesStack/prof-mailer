@@ -1,1 +1,8 @@
-.pyc
+# Python compiled files
+*.pyc
+__pycache__/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3

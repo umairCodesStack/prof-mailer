@@ -87,16 +87,10 @@ async def import_excel(file: UploadFile = File(...), db=Depends(get_db)):
     except Exception as e:  # noqa: BLE001
         raise HTTPException(400, f"Could not read Excel file: {e}")
 
-    existing = {e for (e,) in db.query(Professor.email).all()}
-    added = 0
     for r in valid:
-        if r["email"] in existing:
-            skipped.append({"row": None, "reason": "already in database", "email": r["email"]})
-            continue
         db.add(Professor(**r, status=PENDING))
-        added += 1
     db.commit()
-    return {"added": added, "skipped_count": len(skipped), "skipped": skipped[:100]}
+    return {"added": len(valid), "skipped_count": len(skipped), "skipped": skipped[:100]}
 
 
 @app.get("/api/professors")
@@ -156,8 +150,6 @@ def schedule(req: ScheduleRequest, db=Depends(get_db)):
     start = to_utc_naive(req.start_time)
     if start < utcnow() - timedelta(minutes=1):
         raise HTTPException(400, "start_time is in the past")
-    if not get_setting(db, "cv_path"):
-        raise HTTPException(400, "Upload a CV first (POST /api/cv)")
     query = db.query(Professor).filter(Professor.status == PENDING)
     if req.ids:
         query = query.filter(Professor.id.in_(req.ids))

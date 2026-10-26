@@ -27,10 +27,11 @@ def build_message(to_email: str, name: str, university: str,
     if cv_path:
         p = Path(cv_path)
         if not p.is_file():
-            raise FileNotFoundError(f"CV file not found: {cv_path}")
-        ctype, _ = mimetypes.guess_type(p.name)
-        maintype, subtype = (ctype or "application/octet-stream").split("/", 1)
-        msg.add_attachment(p.read_bytes(), maintype=maintype, subtype=subtype, filename=p.name)
+            log.warning("CV file not found; sending without attachment: %s", cv_path)
+        else:
+            ctype, _ = mimetypes.guess_type(p.name)
+            maintype, subtype = (ctype or "application/octet-stream").split("/", 1)
+            msg.add_attachment(p.read_bytes(), maintype=maintype, subtype=subtype, filename=p.name)
     return msg
 
 

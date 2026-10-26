@@ -17,7 +17,7 @@ Open http://127.0.0.1:8000/docs for the interactive API (click "Authorize"-style
 ## Workflow
 
 1. `PUT  /api/template` subject + body, use `{name}` and `{university}`
-2. `POST /api/cv` upload your CV (.pdf, max 5 MB)
+2. Optionally `POST /api/cv` to attach your CV (.pdf, max 5 MB); emails can be sent without an attachment
 3. `POST /api/professors/import` Excel with columns: University, Professor Name, Email
 4. `POST /api/test-email` send one to yourself first
 5. `POST /api/schedule` e.g. `{"start_time":"2026-10-10T09:00:00","interval_minutes":4,"jitter_seconds":90,"per_day":30}`
@@ -27,7 +27,7 @@ Other: `POST /api/unschedule`, `POST /api/retry-failed`, `DELETE /api/professors
 
 ## Safety built in
 
-- Unique email (no duplicates), atomic claim before sending (no double-send).
+- The same email address can be imported and contacted multiple times; each spreadsheet row is a separate email. Atomic claims prevent a single scheduled row from being sent twice concurrently.
 - If the app crashes mid-send, that row becomes `failed - Interrupted`; check your Sent folder before retrying.
 - `DAILY_LIMIT` enforced by the worker, even if you schedule more.
 - Times without an offset use `APP_TIMEZONE`.

@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import (Column, DateTime, Integer, String, Text, create_engine,
-                        event)
+from sqlalchemy import (Column, DateTime, Integer, MetaData, String, Text,
+                        create_engine, event, inspect)
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.schema import CreateTable
 
 from . import config
 
@@ -39,7 +40,7 @@ class Professor(Base):
     id = Column(Integer, primary_key=True)
     university = Column(String(255), nullable=False, default="")
     name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False, unique=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
     status = Column(String(20), nullable=False, default=PENDING, index=True)
     scheduled_at = Column(DateTime, nullable=True, index=True)  # UTC
     sent_at = Column(DateTime, nullable=True)  # UTC
@@ -62,7 +63,7 @@ I hope this message finds you well. My name is Muhammad Umair Ashraf, and I am w
 
 My academic and professional background is in software engineering, with experience in areas including software development, machine learning, and related technologies. I have been a good and consistent student throughout my academic journey.I'm highly motivated to do masters under your supervision and make great contribution in the field of computer science.
 
-I have attached my CV for your consideration. I would be grateful for the opportunity to discuss this further.
+I would be grateful for the opportunity to discuss this further.
 
 Thank you for your time.
 
@@ -73,6 +74,28 @@ Muhammad Umair Ashraf
 
 def init_db():
     Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        unique_email_indexes = [
+            index for index in inspect(conn).get_indexes("professors")
+            if index["unique"] and index["column_names"] == ["email"]
+        ]
+        if unique_email_indexes:
+            temporary_table = Professor.__table__.to_metadata(
+                MetaData(), name="professors_without_unique_email"
+            )
+            conn.execute(CreateTable(temporary_table))
+            columns = [column.name for column in Professor.__table__.columns]
+            conn.execute(temporary_table.insert().from_select(
+                columns, Professor.__table__.select()
+            ))
+            Professor.__table__.drop(conn)
+            preparer = conn.dialect.identifier_preparer
+            conn.exec_driver_sql(
+                f"ALTER TABLE {preparer.quote(temporary_table.name)} "
+                f"RENAME TO {preparer.quote(Professor.__tablename__)}"
+            )
+            for index in Professor.__table__.indexes:
+                index.create(conn, checkfirst=True)
     with SessionLocal() as db:
         for k, v in (("subject", DEFAULT_SUBJECT), ("body", DEFAULT_BODY), ("cv_path", "")):
             if not db.get(Setting, k):

@@ -35,7 +35,7 @@ def parse_professors(file_bytes: bytes) -> Tuple[List[dict], List[dict]]:
     """Return (valid_rows, skipped_rows). Excel row numbers start at 2 (row 1 = header)."""
     df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
     cols = _find_columns(df.columns)
-    valid, skipped, seen = [], [], set()
+    valid, skipped = [], []
     for i, rec in enumerate(df.to_dict("records"), start=2):
         uni = (rec.get(cols["university"]) or "").strip() if isinstance(rec.get(cols["university"]), str) else ""
         name = (rec.get(cols["name"]) or "").strip() if isinstance(rec.get(cols["name"]), str) else ""
@@ -44,9 +44,6 @@ def parse_professors(file_bytes: bytes) -> Tuple[List[dict], List[dict]]:
             skipped.append({"row": i, "reason": "missing name or email", "email": email})
         elif not EMAIL_RE.match(email):
             skipped.append({"row": i, "reason": "invalid email", "email": email})
-        elif email in seen:
-            skipped.append({"row": i, "reason": "duplicate in file", "email": email})
         else:
-            seen.add(email)
             valid.append({"university": uni, "name": name, "email": email})
     return valid, skipped
