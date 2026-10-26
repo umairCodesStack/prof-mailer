@@ -14,36 +14,58 @@ ALIASES = {
 }
 
 
-def _find_columns(columns) -> dict:
-    lowered = {str(c).strip().lower(): c for c in columns}
+def _find_columns(columns, email_column: str | None = None) -> dict:
+    lowered = {}
+    for column in columns:
+        key = str(column).strip().lower()
+        if not key:
+            raise ValueError("Excel column headers must not be empty")
+        if key in lowered:
+            raise ValueError(f"Duplicate Excel column header: {column}")
+        lowered[key] = column
+
     found = {}
     for field, names in ALIASES.items():
         for n in names:
             if n in lowered:
                 found[field] = lowered[n]
                 break
-    missing = [f for f in ALIASES if f not in found]
-    if missing:
+    if email_column:
+        selected = lowered.get(email_column.strip().lower())
+        if selected is None:
+            raise ValueError(
+                f"Email column '{email_column}' was not found. "
+                f"Available columns: {', '.join(map(str, columns))}"
+            )
+        found["email"] = selected
+    if "email" not in found:
         raise ValueError(
-            f"Missing column(s): {', '.join(missing)}. "
-            f"Found headers: {', '.join(map(str, columns))}"
+            "An email column is required. Use a recognized email header or specify "
+            f"email_column. Available columns: {', '.join(map(str, columns))}"
         )
     return found
 
 
-def parse_professors(file_bytes: bytes) -> Tuple[List[dict], List[dict]]:
+def parse_professors(file_bytes: bytes, email_column: str | None = None) -> Tuple[List[dict], List[dict]]:
     """Return (valid_rows, skipped_rows). Excel row numbers start at 2 (row 1 = header)."""
     df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
-    cols = _find_columns(df.columns)
+    cols = _find_columns(df.columns, email_column)
     valid, skipped = [], []
     for i, rec in enumerate(df.to_dict("records"), start=2):
-        uni = (rec.get(cols["university"]) or "").strip() if isinstance(rec.get(cols["university"]), str) else ""
-        name = (rec.get(cols["name"]) or "").strip() if isinstance(rec.get(cols["name"]), str) else ""
-        email = (rec.get(cols["email"]) or "").strip().lower() if isinstance(rec.get(cols["email"]), str) else ""
-        if not name or not email:
-            skipped.append({"row": i, "reason": "missing name or email", "email": email})
+        fields = {
+            str(column).strip(): (str(rec[column]).strip() if pd.notna(rec[column]) else "")
+            for column in df.columns
+        }
+        email = fields[str(cols["email"]).strip()].lower()
+        if not email:
+            skipped.append({"row": i, "reason": "missing email", "email": email})
         elif not EMAIL_RE.match(email):
             skipped.append({"row": i, "reason": "invalid email", "email": email})
         else:
-            valid.append({"university": uni, "name": name, "email": email})
+            valid.append({
+                "university": fields.get(str(cols.get("university", "")).strip(), ""),
+                "name": fields.get(str(cols.get("name", "")).strip(), ""),
+                "email": email,
+                "custom_fields": fields,
+            })
     return valid, skipped

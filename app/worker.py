@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -59,7 +60,8 @@ def process_due():
                 continue
             try:
                 msg = emailer.build_message(row.email, row.name, row.university,
-                                            subject, body, cv_path)
+                                            subject, body, cv_path,
+                                            json.loads(row.custom_fields or "{}"))
                 emailer.send_message(msg)
                 row.status, row.sent_at, row.error_message = SENT, utcnow(), None
                 sent_today += 1

@@ -41,6 +41,7 @@ class Professor(Base):
     university = Column(String(255), nullable=False, default="")
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False, index=True)
+    custom_fields = Column(Text, nullable=False, default="{}", server_default="{}")
     status = Column(String(20), nullable=False, default=PENDING, index=True)
     scheduled_at = Column(DateTime, nullable=True, index=True)  # UTC
     sent_at = Column(DateTime, nullable=True)  # UTC
@@ -75,6 +76,11 @@ Muhammad Umair Ashraf
 def init_db():
     Base.metadata.create_all(engine)
     with engine.begin() as conn:
+        columns = {column["name"] for column in inspect(conn).get_columns("professors")}
+        if "custom_fields" not in columns:
+            conn.exec_driver_sql(
+                "ALTER TABLE professors ADD COLUMN custom_fields TEXT NOT NULL DEFAULT '{}'"
+            )
         unique_email_indexes = [
             index for index in inspect(conn).get_indexes("professors")
             if index["unique"] and index["column_names"] == ["email"]

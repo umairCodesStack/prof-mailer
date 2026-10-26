@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import random
 from contextlib import asynccontextmanager
@@ -7,7 +8,7 @@ from typing import List, Optional
 from zoneinfo import ZoneInfo
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
-from fastapi import (Depends, FastAPI, File, Header, HTTPException, Query,
+from fastapi import (Depends, FastAPI, File, Form, Header, HTTPException, Query,
                      UploadFile)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -69,6 +70,7 @@ def to_local_iso(dt: Optional[datetime]) -> Optional[str]:
 
 def serialize(p: Professor) -> dict:
     return {"id": p.id, "university": p.university, "name": p.name, "email": p.email,
+            "custom_fields": json.loads(p.custom_fields or "{}"),
             "status": p.status, "scheduled_at": to_local_iso(p.scheduled_at),
             "sent_at": to_local_iso(p.sent_at), "attempts": p.attempts,
             "error_message": p.error_message}
@@ -76,19 +78,24 @@ def serialize(p: Professor) -> dict:
 
 # ---------------------------------------------------------------- import / list
 @app.post("/api/professors/import")
-async def import_excel(file: UploadFile = File(...), db=Depends(get_db)):
-    """Upload .xlsx with columns: University, Professor Name, Email."""
+async def import_excel(file: UploadFile = File(...), email_column: Optional[str] = Form(None),
+                       db=Depends(get_db)):
+    """Upload a spreadsheet and optionally specify which column contains recipient emails."""
     if not file.filename.lower().endswith((".xlsx", ".xlsm")):
         raise HTTPException(400, "Please upload an .xlsx file")
     try:
-        valid, skipped = parse_professors(await file.read())
+        valid, skipped = parse_professors(await file.read(), email_column)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(400, f"Could not read Excel file: {e}")
 
     for r in valid:
-        db.add(Professor(**r, status=PENDING))
+        db.add(Professor(
+            university=r["university"], name=r["name"], email=r["email"],
+            custom_fields=json.dumps(r["custom_fields"], ensure_ascii=False),
+            status=PENDING,
+        ))
     db.commit()
     return {"added": len(valid), "skipped_count": len(skipped), "skipped": skipped[:100]}
 
@@ -210,8 +217,18 @@ class TemplateIn(BaseModel):
 
 @app.get("/api/template")
 def get_template(db=Depends(get_db)):
+    columns = []
+    for (raw_fields,) in db.query(Professor.custom_fields).all():
+        for column in json.loads(raw_fields or "{}"):
+            if column not in columns:
+                columns.append(column)
+    placeholders = ["{name}", "{university}"]
+    placeholders.extend(
+        "{" + column + "}" for column in columns
+        if column.strip().lower() not in {"name", "university"}
+    )
     return {"subject": get_setting(db, "subject"), "body": get_setting(db, "body"),
-            "placeholders": ["{name}", "{university}"], "cv": get_setting(db, "cv_path") or None}
+            "placeholders": placeholders, "cv": get_setting(db, "cv_path") or None}
 
 
 @app.put("/api/template")

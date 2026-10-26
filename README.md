@@ -16,9 +16,9 @@ Open http://127.0.0.1:8000/docs for the interactive API (click "Authorize"-style
 
 ## Workflow
 
-1. `PUT  /api/template` subject + body, use `{name}` and `{university}`
+1. `PUT  /api/template` subject + body, use `{name}`, `{university}`, or any imported spreadsheet column as `{Column Header}` (for example `{Program}` or `{Application Deadline}`)
 2. Optionally `POST /api/cv` to attach your CV (.pdf, max 5 MB); emails can be sent without an attachment
-3. `POST /api/professors/import` Excel with columns: University, Professor Name, Email
+3. `POST /api/professors/import` upload an Excel file; an email-address column is required to deliver messages. Common email headers are detected automatically, or pass `email_column` as a multipart form field to select a differently named column. All spreadsheet columns are saved and available as template placeholders. Name and university columns are optional.
 4. `POST /api/test-email` send one to yourself first
 5. `POST /api/schedule` e.g. `{"start_time":"2026-10-10T09:00:00","interval_minutes":4,"jitter_seconds":90,"per_day":30}`
 6. `GET  /api/stats`, `GET /api/professors?status=sent`, `GET /api/export` (Excel with statuses)

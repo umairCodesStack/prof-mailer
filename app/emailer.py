@@ -1,29 +1,38 @@
 import logging
 import mimetypes
+import re
 import smtplib
 import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from pathlib import Path
+from typing import Mapping
 
 from . import config
 
 log = logging.getLogger("mailer")
 
 
-def render(template: str, name: str, university: str) -> str:
-    # Plain replace (not str.format) so stray { } in your text never crash it.
-    return template.replace("{name}", name).replace("{university}", university)
+def render(template: str, name: str, university: str,
+           fields: Mapping[str, str] | None = None) -> str:
+    values = {"name": name, "university": university}
+    values.update({key.strip().lower(): value for key, value in (fields or {}).items()})
+    return re.sub(
+        r"\{([^{}]+)\}",
+        lambda match: values.get(match.group(1).strip().lower(), match.group(0)),
+        template,
+    )
 
 
 def build_message(to_email: str, name: str, university: str,
-                  subject: str, body: str, cv_path: str | None) -> EmailMessage:
+                  subject: str, body: str, cv_path: str | None,
+                  fields: Mapping[str, str] | None = None) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = formataddr((config.FROM_NAME, config.SMTP_USER)) if config.SMTP_USER else "dry-run@localhost"
     msg["To"] = to_email
-    msg["Subject"] = render(subject, name, university)
+    msg["Subject"] = render(subject, name, university, fields)
     msg["Message-ID"] = make_msgid()
-    msg.set_content(render(body, name, university))
+    msg.set_content(render(body, name, university, fields))
     if cv_path:
         p = Path(cv_path)
         if not p.is_file():
